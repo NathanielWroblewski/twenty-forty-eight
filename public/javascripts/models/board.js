@@ -15,12 +15,15 @@ Game.Models.Board = function (config) {
 	this.width  = config.width
 	this.total  = config.height * config.width
 	this.over   = false
+	this.model  = config.model
 
 	this.initialize = function () {
 		this.tiles = []
 
 		for (var i = 0; i < this.total; i++) {
-			this.tiles.push(EMPTY)
+			this.tiles.push(new this.model({
+				value: EMPTY
+			}))
 		}
 	}
 
@@ -28,11 +31,23 @@ Game.Models.Board = function (config) {
 		var emptyIndicies = []
 
 		for (var i = 0; i < this.total; i++) {
-			if (this.tiles[i] === EMPTY) {
+			if (this.tiles[i].value === EMPTY) {
 				emptyIndicies.push(i)
 			}
 		}
 		return emptyIndicies
+	}
+
+	this.resetNewness = function () {
+		for (var i = 0; i < this.tiles.length; i++) {
+			this.tiles[i].isNew = false
+		}
+	}
+
+	this.resetMerged = function () {
+		for (var i = 0; i < this.tiles.length; i++) {
+			this.tiles[i].wasMerged = false
+		}
 	}
 
 	this.placeTile = function () {
@@ -41,7 +56,8 @@ Game.Models.Board = function (config) {
 			  randomEmptyIndex = empties[random]
 
 		if (empties.length) {
-			return this.tiles[randomEmptyIndex] = 2
+			this.resetNewness()
+			return this.tiles[randomEmptyIndex].placeTile()
 		} else {
 			this.over = true
 			alert('Game over')
@@ -49,8 +65,8 @@ Game.Models.Board = function (config) {
 	}
 
 	this.swap = function (index) {
-		this.tiles[index - 1] = this.tiles[index]
-		this.tiles[index] = EMPTY
+		this.tiles[index - 1].value = this.tiles[index].value
+		this.tiles[index].value = EMPTY
 	}
 
 	this.isWall = function (index) {
@@ -59,18 +75,18 @@ Game.Models.Board = function (config) {
 
 	this.slideAll = function () {
 		for (var i = 0; i < this.total; i++) {
-			if (!!this.tiles[i]) {
+			if (!!this.tiles[i].value) {
 				this.slide(i)
 			}
 		}
 	}
 
 	this.slide = function (index) {
-		for (index; !this.isWall(index) && !this.tiles[index - 1]; index--) {
+		for (index; !this.isWall(index) && !this.tiles[index - 1].value; index--) {
 		  this.swap(index)
 		}
 
-		if (!this.isWall(index) && this.tiles[index - 1] === this.tiles[index]) {
+		if (!this.isWall(index) && this.tiles[index - 1].value === this.tiles[index].value && !this.tiles[index - 1].wasMerged) {
 			this.merge(index)
 		}
 	}
@@ -100,8 +116,9 @@ Game.Models.Board = function (config) {
 	}
 
 	this.merge = function (index) {
-		this.tiles[index - 1] = this.tiles[index - 1] + this.tiles[index]
-		this.tiles[index] = EMPTY
+		this.tiles[index - 1].value = this.tiles[index - 1].value + this.tiles[index].value
+		this.tiles[index].value = EMPTY
+		this.tiles[index - 1].wasMerged = true
 	}
 
 	this.move = function (direction) {
@@ -111,12 +128,19 @@ Game.Models.Board = function (config) {
 		  this.rotateTimes((ROTATIONS.total - ROTATIONS[direction]) % ROTATIONS.total)
 		  this.placeTile()
 		  this.trigger('change')
+		  this.resetMerged()
 		}
 	}
 
 	this.toJSON = function () {
+		var jsonTiles = []
+
+		for (var i = 0; i < this.tiles.length; i++) {
+			jsonTiles.push(this.tiles[i].toJSON())
+		}
+
 		return {
-			tiles: this.tiles
+			tiles: jsonTiles
 		}
 	}
 
